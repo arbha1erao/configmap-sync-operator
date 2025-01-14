@@ -19,7 +19,11 @@ package controller
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -50,6 +54,47 @@ func (r *ConfigMapSyncReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	_ = log.FromContext(ctx)
 
 	// TODO(user): your logic here
+
+	configMapSync := &configsyncv1alpha1.ConfigMapSync{}
+	if err := r.Get(ctx, req.NamespacedName, configMapSync); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	sourceConfigMap := &corev1.ConfigMap{}
+	sourceConfigMapName := types.NamespacedName{
+		Namespace: configMapSync.Spec.SrcNamespace,
+		Name:      configMapSync.Spec.ConfigMapName,
+	}
+	if err := r.Get(ctx, sourceConfigMapName, sourceConfigMap); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	destinationConfigMap := &corev1.ConfigMap{}
+	destinationConfigMapName := types.NamespacedName{
+		Namespace: configMapSync.Spec.DestNamespace,
+		Name:      configMapSync.Spec.ConfigMapName,
+	}
+	if err := r.Get(ctx, destinationConfigMapName, destinationConfigMap); err != nil {
+		if errors.IsNotFound(err) {
+			destinationConfigMap = &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      configMapSync.Spec.ConfigMapName,
+					Namespace: configMapSync.Spec.DestNamespace,
+				},
+				Data: sourceConfigMap.Data,
+			}
+			if err := r.Create(ctx, destinationConfigMap); err != nil {
+				return ctrl.Result{}, err
+			}
+		} else {
+			return ctrl.Result{}, err
+		}
+	} else {
+		destinationConfigMap.Data = sourceConfigMap.Data
+		if err := r.Update(ctx, destinationConfigMap); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 
 	return ctrl.Result{}, nil
 }
