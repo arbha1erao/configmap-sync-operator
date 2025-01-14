@@ -39,13 +39,25 @@ spec:
           spec:
             description: ConfigMapSyncSpec defines the desired state of ConfigMapSync.
             properties:
-              foo:
-                description: Foo is an example field of ConfigMapSync. Edit configmapsync_types.go
-                  to remove/update
+              configMapName:
                 type: string
+              destinationNamespace:
+                type: string
+              sourceNamespace:
+                type: string
+            required:
+            - configMapName
+            - destinationNamespace
+            - sourceNamespace
             type: object
           status:
             description: ConfigMapSyncStatus defines the observed state of ConfigMapSync.
+            properties:
+              lastSyncTime:
+                format: date-time
+                type: string
+            required:
+            - lastSyncTime
             type: object
         type: object
     served: true
