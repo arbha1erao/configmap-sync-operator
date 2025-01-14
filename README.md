@@ -1,0 +1,1 @@
+# configmap-sync-operator
